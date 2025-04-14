@@ -2,17 +2,19 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
-import cmocean.cm as cmo
+import cmocean as cmo
 import matplotlib.colors as mcolors
 import matplotlib.cm as cm
+import xarray as xr
 
 def simple_map(x2: np.ndarray, y2: np.ndarray, elements: np.ndarray, data: np.ndarray, levels: list, 
                projection=ccrs.NorthPolarStereo(), extent: list = [-20, 20, 75, 82], 
-               title: str = None, cbar_label: str = None, cmap=cm.thermal, 
+               title: str = None, cbar_label: str = None, cmap=cmo.cm.thermal, 
                ticks: list = None, figsize: tuple = (8, 5), cbar_extent: str = None) -> tuple:
     """
     Create a simple map with contour fill using Cartopy and Matplotlib.
-
+    This function generates a map with contour fill based on the provided x and y coordinates,
+    the data values from an xarray dataset, and the specified contour levels.
     Parameters:
     -----------
     x2 : np.ndarray
@@ -62,7 +64,7 @@ def simple_map(x2: np.ndarray, y2: np.ndarray, elements: np.ndarray, data: np.nd
 
     
     # Plot data
-    im = ax.tricontourf(x2, y2, elements, data, cmap=cmap, extend=cbar_extent, levels=levels)
+    im = ax.tricontourf(x2, y2, elements, data, cmap=cmap, extend=cbar_extent, levels=levels, transform=ccrs.PlateCarree())
     
     # Colorbar
     cbar = fig.colorbar(im)

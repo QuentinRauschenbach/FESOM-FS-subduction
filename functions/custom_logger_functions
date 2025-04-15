@@ -1,7 +1,7 @@
 import logging
 
 def set_logging_level_user(logger):
-    logLevel = input ( 'What log level you  want to use?')
+    logLevel = input ( 'Which log level you  want to use?')
     if logLevel.upper() == 'CRITICAL':
         logger.setLevel(logging.CRITICAL)
     elif logLevel.upper() == 'ERROR':

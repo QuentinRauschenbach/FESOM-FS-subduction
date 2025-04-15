@@ -90,7 +90,7 @@ def plot_polar_contourf(
     
 
     if title:
-        ax.set_title(title)
+        ax.set_title(title, fontweight='bold')
 
     if save_path:
         plt.savefig(save_path, dpi=300)

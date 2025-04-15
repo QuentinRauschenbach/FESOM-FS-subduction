@@ -100,3 +100,36 @@ def plot_polar_contourf(
         return None
     else:
         return fig, ax
+    
+
+def simple_map_base(nodes_2d, mesh, levels, ticks, cmap, t):
+    m = Basemap(projection='laea', resolution='i',
+            width=1000000, height=700000,
+            lat_0=79, lon_0=3)
+    x2, y2 = m(mesh.x2, mesh.y2)
+    
+    
+    
+    fig, ax = plt.subplots(1,1, figsize=(7,4), constrained_layout=True)
+    
+    data,  elements = pf.get_data(ds_oce.temp.values[t,:],mesh, verbose=False)
+    
+    m.drawmapboundary(fill_color='0.9')
+    m.drawcoastlines()
+    
+    im = ax.tricontourf(x2, y2, elements, nodes_2d, 
+                 cmap=cmap,
+                        extend="max",
+                    levels=levels)#np.arange(-2,10,0.5))
+    cbar = fig.colorbar(im, ax=ax, label="Depth [m]", ticks=ticks)
+    cbar.ax.invert_yaxis()  # Flips the colorbar so deeper values are at the bottom
+    
+    
+    formatted_date = ds_oce.time[t].values.item().strftime("%Y-%m-%d")
+    ax.set_title(f"Depth of Tmax on {formatted_date}")
+    #display.display(plt.gcf())
+    #display.clear_output(wait=True)
+    
+    #fig.savefig(f"/albedo/home/quraus001/plots/T_max_depth/T_max_depth_{formatted_date}.png", dpi=200)
+    fig.show()
+    #plt.close()

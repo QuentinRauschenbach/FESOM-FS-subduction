@@ -2,76 +2,101 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
-import cmocean as cmo
-import matplotlib.colors as mcolors
-import matplotlib.cm as cm
-import xarray as xr
+from typing import Optional, Sequence, Tuple, Union
 
-def simple_map(x2: np.ndarray, y2: np.ndarray, elements: np.ndarray, data: np.ndarray, levels: list, 
-               projection=ccrs.NorthPolarStereo(), extent: list = [-20, 20, 75, 82], 
-               title: str = None, cbar_label: str = None, cmap=cmo.cm.thermal, 
-               ticks: list = None, figsize: tuple = (8, 5), cbar_extent: str = None) -> tuple:
+def plot_polar_contourf(
+    mesh: object,
+    data: np.ndarray,
+    *,
+    levels: Optional[Union[np.ndarray, Sequence[float]]] = None,
+    cmap: str = 'viridis',
+    extend: str = 'both',
+    flip_cbar: bool = False,
+    extent: Sequence[float] = [-20, 20, 75, 82],
+    label: str = "Value",
+    figsize: Tuple[float, float] = (8, 6),
+    title: Optional[str] = None,
+    show: bool = True,
+    save_path: Optional[str] = None,
+    fill_num: Optional[float] = -100,
+) -> Optional[Tuple[plt.Figure, plt.Axes]]:
     """
-    Create a simple map with contour fill using Cartopy and Matplotlib.
-    This function generates a map with contour fill based on the provided x and y coordinates,
-    the data values from an xarray dataset, and the specified contour levels.
-    Parameters:
-    -----------
-    x2 : np.ndarray
-        Array of x-coordinates (e.g., longitude) for the data points.
-    y2 : np.ndarray
-        Array of y-coordinates (e.g., latitude) for the data points.
-    elements : np.ndarray
-        Array defining the triangular elements for plotting (e.g., mesh connectivity).
+    Plot a tricontourf map of unstructured data on a polar projection.
+
+    Parameters
+    ----------
+    mesh : object
+        Mesh object with attributes:
+        - `x2`: 1D numpy array of longitudes (or x-coordinates).
+        - `y2`: 1D numpy array of latitudes (or y-coordinates).
+        - `elem`: 2D array-like of triangle indices for the mesh.
     data : np.ndarray
-        Array of data values to be plotted (e.g., temperature, salinity).
-    levels : list
-        List of contour levels for the plot.
+        1D array of scalar values defined on the mesh.
+    dx : float, optional
+        Interval between contour levels (used if `levels` is None), by default 100.
+    levels : array-like, optional
+        Contour levels. If None, levels are automatically generated from data using `dx`.
+    cmap : str, optional
+        Name of the matplotlib colormap to use, by default 'viridis'.
     projection : cartopy.crs.Projection, optional
-        Cartopy projection for the map. Default is `ccrs.NorthPolarStereo()`.
-    extent : list, optional
-        List defining the map extent in the format [lon_min, lon_max, lat_min, lat_max].
-        Default is `[-20, 20, 75, 82]`.
+        Map projection for the plot, by default `ccrs.NorthPolarStereo()`.
+    extent : list of float, optional
+        Geographic extent in [lon_min, lon_max, lat_min, lat_max] (degrees), by default [-20, 20, 75, 82].
+    label : str, optional
+        Label for the colorbar, by default "Value".
+    figsize : tuple of float, optional
+        Size of the figure in inches (width, height), by default (8, 6).
     title : str, optional
-        Title of the plot. Default is `None`.
-    cbar_label : str, optional
-        Label for the colorbar. Default is `None`.
-    cmap : matplotlib.colors.Colormap, optional
-        Colormap for the plot. Default is `cmo.cm.thermal`.
-    ticks : list, optional
-        List of tick values for the colorbar. Default is `None`.
-    figsize : tuple, optional
-        Tuple defining the figure size (width, height) in inches. Default is `(8, 5)`.
-    cbar_extent : str, optional
-        Colorbar extension (e.g., "both", "min", "max"). Default is `None`.
+        Title of the plot, by default None.
+    show : bool, optional
+        Whether to display the plot using `plt.show()`, by default True.
+    save_path : str, optional
+        If provided, saves the figure to this path (e.g., "output.png"), by default None.
 
-    Returns:
-    --------
-    tuple
-        A tuple containing the Matplotlib figure and axes objects (`fig`, `ax`).
+    Returns
+    -------
+    (matplotlib.figure.Figure, matplotlib.axes.Axes), optional
+        If `show` is False, returns the figure and axis for further use. Otherwise, returns None.
     """
-    
-    # Create figure and axes
+    projection = ccrs.NorthPolarStereo()
+    pc = ccrs.PlateCarree()
+    x_proj, y_proj = projection.transform_points(pc, mesh.x2, mesh.y2)[:, :2].T
+
+    if levels is None:
+        vmin = np.nanmin(data)
+        vmax = np.nanmax(data)
+        levels = np.linspace(vmin, vmax+10, 10)
+
+    # Check if the array contains NaNs
+    if np.any(np.isnan(data)):
+        print(f"Replace NaNs with {fill_num}")
+        data = np.nan_to_num(data, nan=fill_num)
+
     fig, ax = plt.subplots(figsize=figsize, subplot_kw={'projection': projection}, constrained_layout=True)
-    
-    # Set map extent
-    ax.set_extent(extent, crs=ccrs.PlateCarree())
-    
-    # Add features
+    cf = ax.tricontourf(x_proj, y_proj, mesh.elem, data, levels=levels, cmap=cmap, extend=extend)
+
+    cbar = plt.colorbar(cf, ax=ax, orientation='vertical', shrink=0.7)
+    cbar.set_label(label)
+    if flip_cbar:
+        cbar.ax.invert_yaxis()  # Flips the colorbar so deeper values are at the bottom
+
+
+    ax.set_extent(extent, crs=pc)
     ax.coastlines(resolution='10m')
     ax.add_feature(cfeature.LAND, zorder=0, edgecolor='black', facecolor='lightgray')
-    ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+    gl = ax.gridlines(draw_labels=True, x_inline=False, y_inline=False, 
+                  color='gray', alpha=0.5, linestyle='--')
+    gl.right_labels = False   # Show right y-axis labels
+    
 
-    
-    # Plot data
-    im = ax.tricontourf(x2, y2, elements, data, cmap=cmap, extend=cbar_extent, levels=levels, transform=ccrs.PlateCarree())
-    
-    # Colorbar
-    cbar = fig.colorbar(im)
-    cbar.set_label(cbar_label)
-    cbar.set_ticks(ticks)
-    
-    # Title
-    plt.title(title, fontweight='bold', fontsize=14)
-    
-    return fig, ax
+    if title:
+        ax.set_title(title)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+    if show:
+        plt.show()
+        return None
+    else:
+        return fig, ax

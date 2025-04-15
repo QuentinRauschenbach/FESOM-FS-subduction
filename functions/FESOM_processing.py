@@ -1,5 +1,67 @@
 import numpy as np
 import xarray as xr
+import pandas as pd
+
+def load_FESOM_data_with_grid(meshpath:str, datapath:str, vars:str="oce") -> xr.Dataset:
+    """
+    Load FESOM data and grid information from the specified paths.
+    Parameters:
+    ---------- 
+    meshpath : str
+        Path to the mesh files.
+    datapath : str
+        Path to the data files.
+    vars : str
+        Variable type to load (default is "oce").
+    Returns:
+    -------
+    ds : xarray.Dataset
+        Dataset containing the loaded data and grid information.
+    """
+    
+    ds   = xr.open_dataset(datapath)
+    
+    if vars == "oce":
+        df_bath  = pd.read_csv(meshpath + "depth.out", skiprows=0, names=["bath"])
+        df_depth = pd.read_csv(meshpath + "nod3d.out", skiprows=1, names=["knot_num", "lon", "lat", "depth", "border_id"], sep='\s+', index_col=0)
+        df_aux3d = pd.read_csv(meshpath + "aux3d.out", skiprows=1, names=["knot_num"])
+
+        data = xr.DataArray(df_bath['bath'].values, dims=['nodes_2d'])
+        data.attrs['description'] = 'depth from depth.out'
+        data.attrs['units'] = 'meters'
+        ds['bath'] = data
+
+        data = xr.DataArray(df_depth['depth'].values, dims=['nodes_3d'])
+        data.attrs['description'] = 'depth of each 3D node from nod3d.out'
+        data.attrs['units'] = 'meters'
+        ds['depth'] = data
+
+        depth_levels = np.flip(np.array(sorted(list(set(ds.depth.values))))) #np.unique
+        depth_levels = np.append(depth_levels, [np.nan, np.nan]) # fill the last two with nan (not present in Fram Strait data)
+
+        # Add depth_levels as a coordinate to ds
+        ds = ds.assign_coords(depth_levels=depth_levels)
+        ds.depth_levels.attrs['description'] = 'model depth levels'
+        ds.depth_levels.attrs['units'] = 'meters'
+
+        end = 570732*47
+        data = xr.DataArray(df_aux3d['knot_num'].values[:end].reshape(-1,47)-1, dims=['nodes_2d', "depth_levels"])
+        ds['aux3d'] = data
+        ds['aux3d'].attrs['description'] = 'Mapping of 3D nodes to 2D nodes and depth from aux3d.out'
+        ds['aux3d'].attrs['units'] = '1'
+        ds['aux3d'].attrs['missing_value'] = -999
+    
+    df_lonlat_2d = pd.read_csv(meshpath + "nod2d.out", skiprows=1, names=["knot_num", "lon", "lat", "border_id"], sep='\s+', index_col=0)
+    ds = ds.assign_coords(
+        lon=("nodes_2d", df_lonlat_2d['lon'].values),
+        lat=("nodes_2d", df_lonlat_2d['lat'].values),)
+    ds.lon.attrs['description'] = 'longitude from nod2d.out'
+    ds.lon.attrs['units'] = 'degrees_east'
+    ds.lat.attrs['description'] = 'latitude from nod2d.out'
+    ds.lat.attrs['units'] = 'degrees_north'
+            
+    return ds
+    
 
 def reshape_3d_nodes(ds: xr.Dataset, var: str, time_idx: int, fill_value: int = -999) -> np.ndarray:
     """

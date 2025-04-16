@@ -1,0 +1,4 @@
+__pycache__/
+parcels-tutorials/
+*.py[cod]
+**/*.py[cod]

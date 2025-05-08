@@ -4,3 +4,6 @@ parcels-tutorials/
 *.py[cod]
 **/*.py[cod]
 *.zarr
+data/
+*.ipynb_checkpoints
+.png

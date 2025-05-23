@@ -6,4 +6,5 @@ parcels-tutorials/
 *.zarr
 data/
 *.ipynb_checkpoints
-.png
+*.png
+*.nc

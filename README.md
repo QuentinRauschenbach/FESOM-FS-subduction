@@ -5,7 +5,6 @@ PhD project WP1 repository – analysis of high-resolution ocean models FESOM an
 
 > 🚧 work in progress 🚧
 
----
 
 ## 🌊 Project Overview
 
@@ -13,7 +12,7 @@ This repository is part of an ongoing PhD project investigating the subduction o
 I will investigate properties along Lagrangian pathways created with OceanParcels(?) and high-resolution model outputs from **FESOM** (Finite-Element Sea Ice–Ocean Model) and **ROMS** (Regional Ocean Modeling System)
 
 
----
+
 
 ## 📦 Repository Structure
 ```

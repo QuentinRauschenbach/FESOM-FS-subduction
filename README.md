@@ -14,11 +14,12 @@ I will investigate properties along Lagrangian pathways created with OceanParcel
 ---
 
 ## 📦 Repository Structure
+```
 FESOM-FS-subduction/
 ├── notebooks/ # Early analyses, figures, trial and errors
 ├── functions/ # Helper functions both processing and plotting
 ├── plots/ (not included in repo)
 ├── outdata/ # small output files (not included in repo)
 └── README.md
-
+```
 

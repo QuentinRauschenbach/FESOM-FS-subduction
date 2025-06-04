@@ -89,8 +89,13 @@ def reshape_3d_nodes(ds: xr.Dataset, var: str, time_idx: int, fill_value: int = 
     # Read aux3d (Mapping wich 3D nodes are above each other)
     aux3d_mapping = ds['aux3d'].astype(int).values
     
-    # Get data for one time step
-    data_raw = ds[var].isel(time=time_idx)
+    # Check if ds still has a time dimension or if it was already pre selected
+    if 'time' in ds.dims:
+        # Get data for one time step
+        data_raw = ds[var].isel(time=time_idx)
+    else:
+        # If no time dimension, use the data directly
+        data_raw = ds[var]
     
     # Get dimension size & initialize reshaped array
     num_nodes_2d     = ds['nodes_2d'].size

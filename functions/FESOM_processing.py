@@ -118,3 +118,85 @@ def reshape_3d_nodes(ds: xr.Dataset, var: str, time_idx: int, fill_value: int = 
     data_reshaped[row_indices_2d, col_indices_depth] = np.where(np.isnan(original_values), np.nan, original_values)
 
     return data_reshaped
+
+
+def rotate_fesom_velocities_const_alpha(ds_fesom: xr.Dataset, mesh) -> xr.Dataset:
+    """
+    Rotates FESOM's native 'u' and 'v' velocity components to true East-North
+    components using a global rotation angle from the FESOM mesh.
+
+    Parameters:
+    -----------
+    ds_fesom : xarray.Dataset
+        The original FESOM dataset containing 'u' and 'v' variables
+        with a 'nodes_3d' dimension.
+    mesh : pyfesom.mesh
+        The loaded FESOM mesh object, containing the global 'alpha'
+        rotation angle.
+
+    Returns:
+    --------
+    xarray.Dataset
+        A new dataset with 'u_east' and 'v_north' variables added,
+        and the original 'u' and 'v' variables dropped.
+        The data remains on the original 'nodes_3d' unstructured grid.
+
+    Raises:
+    -------
+    ValueError
+        If 'u' or 'v' variables are missing from the input dataset.
+        If 'mesh.alpha' is not found or is not a scalar (int or float).
+    """
+
+    if 'u' not in ds_fesom or 'v' not in ds_fesom:
+        raise ValueError("Input dataset must contain 'u' and 'v' variables for rotation.")
+
+    # --- Obtain Rotation Angles from mesh.alpha ---
+    # mesh.alpha is confirmed to be a single scalar value (global rotation angle in degrees).
+    
+    if not hasattr(mesh, 'alpha') or not isinstance(mesh.alpha, (int, float)):
+        raise ValueError(
+            "The 'mesh' object does not have a suitable 'alpha' attribute or it's not a scalar (int/float). "
+            "Please ensure your FESOM mesh setup and pyFESOM loading correctly provide this."
+        )
+
+    # Get the global alpha value
+    global_alpha_deg = float(mesh.alpha) # Ensure it's a float for numpy operations
+    
+    # Create an array of this global angle, matching the size of nodes_3d
+    # All 3D nodes will be rotated by the same global angle.
+    num_nodes_3d = ds_fesom['nodes_3d'].size
+    angle_deg_array = np.full(num_nodes_3d, global_alpha_deg)
+            
+    # Convert angle to radians
+    angle_rad = np.deg2rad(angle_deg_array)
+    
+    # Ensure angle_rad is an xarray DataArray aligned with 'nodes_3d' for broadcasting
+    angle_rad_da = xr.DataArray(angle_rad, coords={'nodes_3d': ds_fesom['nodes_3d']}, dims='nodes_3d')
+
+    # --- Perform the Rotation ---
+    u_fesom = ds_fesom['u']
+    v_fesom = ds_fesom['v']
+
+    # Standard 2D rotation matrix:
+    # u_true_east = u_local * cos(angle) - v_local * sin(angle)
+    # v_true_north = u_local * sin(angle) + v_local * cos(angle)
+    u_true_east = u_fesom * np.cos(angle_rad_da) - v_fesom * np.sin(angle_rad_da)
+    v_true_north = u_fesom * np.sin(angle_rad_da) + v_fesom * np.cos(angle_rad_da)
+
+    # --- Create new dataset with rotated velocities ---
+    ds_rotated = ds_fesom.copy(deep=True)
+
+    ds_rotated['u_east'] = u_true_east
+    ds_rotated['v_north'] = v_true_north
+
+    # Drop original 'u' and 'v' to avoid confusion and save space
+    ds_rotated = ds_rotated.drop_vars(['u', 'v'])
+
+    # Rename u_east and v_north to match the original variable names
+    ds_rotated = ds_rotated.rename({'u_east': 'u', 'v_north': 'v'})
+    # ... but change attributes to indicate these are now rotated
+    ds_rotated['u'].attrs['description'] = 'True Eastward velocity component (rotated from FESOM u)'
+    ds_rotated['v'].attrs['description'] = 'True Northward velocity component (rotated from FESOM v)'
+
+    return ds_rotated
